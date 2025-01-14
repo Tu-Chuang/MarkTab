@@ -1,0 +1,7 @@
+target/
+uploads/
+backups/
+.git/
+.env
+Dockerfile
+docker-compose.yml 

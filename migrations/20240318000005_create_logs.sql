@@ -1,0 +1,11 @@
+CREATE TABLE IF NOT EXISTS system_logs (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    level VARCHAR(20) NOT NULL,
+    module VARCHAR(50) NOT NULL,
+    message TEXT NOT NULL,
+    user_id INT,
+    ip VARCHAR(45),
+    user_agent VARCHAR(255),
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+); 

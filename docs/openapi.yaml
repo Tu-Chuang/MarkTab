@@ -1,0 +1,613 @@
+openapi: 3.0.0
+info:
+  title: MARKTAB API
+  description: MARKTAB后端API文档
+  version: 1.0.0
+  contact:
+    name: MARKTAB Team
+    email: support@MARKTAB.dev
+
+servers:
+  - url: http://localhost:8080
+    description: 开发环境
+  - url: https://api.MARKTAB.dev
+    description: 生产环境
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    Error:
+      type: object
+      properties:
+        code:
+          type: integer
+          example: 0
+        msg:
+          type: string
+        error_code:
+          type: integer
+        data:
+          type: null
+
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+        email:
+          type: string
+        nickname:
+          type: string
+        is_admin:
+          type: boolean
+        status:
+          type: integer
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    LoginRequest:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          format: password
+
+    TokenResponse:
+      type: object
+      properties:
+        access_token:
+          type: string
+        refresh_token:
+          type: string
+        expires_in:
+          type: integer
+
+    FileInfo:
+      type: object
+      properties:
+        id:
+          type: integer
+        filename:
+          type: string
+        mime_type:
+          type: string
+        size:
+          type: integer
+        hash:
+          type: string
+        path:
+          type: string
+        user_id:
+          type: integer
+        status:
+          type: integer
+        created_at:
+          type: string
+          format: date-time
+
+    PluginInfo:
+      type: object
+      properties:
+        name:
+          type: string
+        name_en:
+          type: string
+        version:
+          type: string
+        description:
+          type: string
+        author:
+          type: string
+        settings:
+          type: object
+          nullable: true
+
+    TodoFolder:
+      type: object
+      properties:
+        id:
+          type: integer
+        user_id:
+          type: integer
+        name:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+
+    TodoItem:
+      type: object
+      properties:
+        id:
+          type: integer
+        user_id:
+          type: integer
+        folder_id:
+          type: integer
+        content:
+          type: string
+        completed:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    Poetry:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        content:
+          type: string
+        author:
+          type: string
+        dynasty:
+          type: string
+        category:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+
+paths:
+  /auth/login:
+    post:
+      tags:
+        - 认证
+      summary: 用户登录
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: 登录成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 1
+                  msg:
+                    type: string
+                    example: success
+                  data:
+                    $ref: '#/components/schemas/TokenResponse'
+        '401':
+          description: 登录失败
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /auth/refresh:
+    post:
+      tags:
+        - 认证
+      summary: 刷新Token
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: 刷新成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 1
+                  msg:
+                    type: string
+                    example: success
+                  data:
+                    $ref: '#/components/schemas/TokenResponse'
+
+  /user/profile:
+    get:
+      tags:
+        - 用户
+      summary: 获取用户信息
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: 获取成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 1
+                  msg:
+                    type: string
+                    example: success
+                  data:
+                    $ref: '#/components/schemas/User'
+
+  /file/upload:
+    post:
+      tags:
+        - 文件
+      summary: 上传文件
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        '200':
+          description: 上传成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 1
+                  msg:
+                    type: string
+                    example: success
+                  data:
+                    $ref: '#/components/schemas/FileInfo'
+
+  /file/list:
+    get:
+      tags:
+        - 文件
+      summary: 获取文件列表
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: per_page
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: 获取成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 1
+                  msg:
+                    type: string
+                    example: success
+                  data:
+                    type: object
+                    properties:
+                      items:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/FileInfo'
+                      total:
+                        type: integer
+                      page:
+                        type: integer
+                      per_page:
+                        type: integer
+
+  /plugin/list:
+    get:
+      tags:
+        - 插件
+      summary: 获取插件列表
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: 获取成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 1
+                  msg:
+                    type: string
+                    example: success
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/PluginInfo'
+
+  /plugin/{name}/enable:
+    post:
+      tags:
+        - 插件
+      summary: 启用插件
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 启用成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 1
+                  msg:
+                    type: string
+                    example: success
+                  data:
+                    type: null
+
+  /plugin/{name}/disable:
+    post:
+      tags:
+        - 插件
+      summary: 禁用插件
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 禁用成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 1
+                  msg:
+                    type: string
+                    example: success
+                  data:
+                    type: null
+
+  /todo/folder:
+    post:
+      tags:
+        - 待办事项
+      summary: 创建文件夹
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+      responses:
+        '200':
+          description: 创建成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 1
+                  msg:
+                    type: string
+                  data:
+                    $ref: '#/components/schemas/TodoFolder'
+
+    get:
+      tags:
+        - 待办事项
+      summary: 获取文件夹列表
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: 获取成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 1
+                  msg:
+                    type: string
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/TodoFolder'
+
+  /todo/item:
+    post:
+      tags:
+        - 待办事项
+      summary: 创建待办事项
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                folder_id:
+                  type: integer
+                content:
+                  type: string
+      responses:
+        '200':
+          description: 创建成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 1
+                  msg:
+                    type: string
+                  data:
+                    $ref: '#/components/schemas/TodoItem'
+
+  /todo/item/{folder_id}:
+    get:
+      tags:
+        - 待办事项
+      summary: 获取文件夹中的待办事项
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: folder_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: 获取成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 1
+                  msg:
+                    type: string
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/TodoItem'
+
+  /poetry/random:
+    get:
+      tags:
+        - 诗词
+      summary: 获取随机诗词
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: 获取成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 1
+                  msg:
+                    type: string
+                  data:
+                    $ref: '#/components/schemas/Poetry'
+
+  /poetry/search:
+    get:
+      tags:
+        - 诗词
+      summary: 搜索诗词
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: keyword
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: per_page
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: 搜索成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: integer
+                    example: 1
+                  msg:
+                    type: string
+                  data:
+                    type: object
+                    properties:
+                      items:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Poetry'
+                      total:
+                        type: integer
+                      page:
+                        type: integer
+                      per_page:
+                        type: integer 

@@ -1,0 +1,83 @@
+# MARKTAB Rust Project Rules & Architecture
+
+## Project Structure
+/src
+  /controllers      # HTTP请求处理层
+  /models          # 数据模型层
+  /services        # 业务逻辑层
+  /middleware      # 中间件
+  /utils           # 工具函数
+  /config          # 配置文件
+  /error          # 错误处理
+  /migrations      # 数据库迁移
+  /tests          # 测试文件
+
+## Coding Standards
+1. 文件命名：使用蛇形命名法(snake_case)
+2. 结构体/枚举：使用大驼峰命名法(PascalCase)
+3. 函数/变量：使用蛇形命名法(snake_case)
+4. 常量：使用大写蛇形命名法(SCREAMING_SNAKE_CASE)
+
+## Error Handling
+1. 使用 thiserror 定义错误类型
+2. 使用 anyhow 处理错误传播
+3. API 错误统一返回格式
+
+## Database
+1. 使用 SQLx 进行数据库操作
+2. 所有SQL查询使用参数化查询
+3. 数据库模型需要实现必要的trait
+
+## API Response Format
+{
+    "code": number,    // 1成功，0失败
+    "msg": string,     // 消息
+    "data": T | null   // 数据
+}
+
+## Authentication
+1. 使用 JWT 进行身份验证
+2. Token 格式: Bearer <token>
+3. 管理员验证中间件
+
+## Features Implementation
+1. 用户认证
+2. 文件上传
+3. 配置管理
+4. 插件系统
+5. 天气服务
+6. 诗词服务
+7. 待办事项
+8. 热搜服务
+
+## Testing
+1. 单元测试覆盖核心业务逻辑
+2. 集成测试覆盖API端点
+3. 测试文件命名：*_test.rs
+
+## Documentation
+1. 所有公共API需要文档注释
+2. README需要包含项目说明和启动方法
+3. API文档使用OpenAPI规范
+
+## Dependencies Management
+1. 使用语义化版本控制
+2. 定期更新依赖版本
+3. 最小化依赖数量
+
+## Security
+1. 密码必须加密存储
+2. 敏感配置使用环境变量
+3. 输入验证和清理
+4. CORS策略配置
+
+## Development Workflow
+1. 使用Git进行版本控制
+2. 提交信息遵循约定式提交规范
+3. 代码审查流程
+4. CI/CD配置
+
+## Environment Setup
+1. 开发环境(.env.development)
+2. 生产环境(.env.production)
+3. 测试环境(.env.test) 

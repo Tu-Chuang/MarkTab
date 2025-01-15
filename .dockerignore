@@ -1,7 +1,12 @@
 target/
+.git/
+.gitignore
+.env
 uploads/
 backups/
-.git/
-.env
+*.md
+LICENSE
+tests/
+docs/
 Dockerfile
 docker-compose.yml 

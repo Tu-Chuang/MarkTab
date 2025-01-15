@@ -1,17 +1,35 @@
-use std::path::Path;
+pub mod crypto;
+pub mod jwt;
+pub mod validator;
 
-pub fn get_content_type(path: &str) -> String {
-    let extension = Path::new(path)
-        .extension()
-        .and_then(|ext| ext.to_str())
-        .unwrap_or("");
+use chrono::{DateTime, Utc};
+use serde::Serialize;
 
-    match extension.to_lowercase().as_str() {
-        "jpg" | "jpeg" => "image/jpeg",
-        "png" => "image/png",
-        "gif" => "image/gif",
-        "webp" => "image/webp",
-        "svg" => "image/svg+xml",
-        _ => "application/octet-stream",
-    }.to_string()
+#[derive(Debug, Serialize)]
+pub struct Response<T> {
+    pub code: i32,
+    pub msg: String,
+    pub data: Option<T>,
+}
+
+impl<T> Response<T> {
+    pub fn success(data: T) -> Self {
+        Self {
+            code: 1,
+            msg: "success".to_string(),
+            data: Some(data),
+        }
+    }
+
+    pub fn error(msg: impl Into<String>) -> Self {
+        Self {
+            code: 0,
+            msg: msg.into(),
+            data: None,
+        }
+    }
+}
+
+pub fn now() -> DateTime<Utc> {
+    Utc::now()
 } 

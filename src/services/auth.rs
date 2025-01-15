@@ -1,13 +1,17 @@
-use crate::{models::{user::User, token::Token}, error::AppError};
-use jsonwebtoken::{encode, decode, Header, EncodingKey, DecodingKey, Validation};
-use serde::{Serialize, Deserialize};
+use chrono::{Duration, Utc};
+use jsonwebtoken::{encode, EncodingKey, Header};
+use serde::{Deserialize, Serialize};
 use sqlx::MySqlPool;
-use chrono::{Utc, Duration};
+use crate::{
+    error::{AppError, AppResult},
+    models::{user::User, token::Token},
+    config::Config,
+};
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct Claims {
-    pub sub: i32,  // user_id
-    pub exp: i64,  // expiration time
+struct Claims {
+    sub: i32,  // user_id
+    exp: i64,  // expiration time
 }
 
 pub struct AuthService;
@@ -19,48 +23,55 @@ impl AuthService {
         password: &str,
         user_agent: &str,
         ip: &str,
-    ) -> Result<Token, AppError> {
+    ) -> AppResult<Token> {
+        // 查找用户
         let user = User::find_by_email(pool, email)
             .await?
-            .ok_or_else(|| AppError::Auth("Invalid credentials".into()))?;
+            .ok_or_else(|| AppError::Auth("User not found".to_string()))?;
 
+        // 验证密码
         if !bcrypt::verify(password, &user.password)? {
-            return Err(AppError::Auth("Invalid credentials".into()));
+            return Err(AppError::Auth("Invalid password".to_string()));
         }
 
+        // 生成token
+        let config = Config::from_env()?;
+        let exp = Utc::now() + Duration::days(7);
         let claims = Claims {
             sub: user.id,
-            exp: (Utc::now() + Duration::days(7)).timestamp(),
+            exp: exp.timestamp(),
         };
 
         let token = encode(
             &Header::default(),
             &claims,
-            &EncodingKey::from_secret(std::env::var("JWT_SECRET").unwrap().as_bytes()),
+            &EncodingKey::from_secret(config.jwt_secret.as_bytes()),
         )?;
 
-        Token::create(pool, user.id, &token, user_agent, ip).await
-            .map_err(AppError::Database)
+        // 保存token记录
+        Token::create(
+            pool,
+            user.id,
+            &token,
+            user_agent,
+            ip,
+            exp,
+        ).await
     }
 
     pub async fn verify_token(
         pool: &MySqlPool,
         token: &str,
-    ) -> Result<User, AppError> {
-        let claims = decode::<Claims>(
-            token,
-            &DecodingKey::from_secret(std::env::var("JWT_SECRET").unwrap().as_bytes()),
-            &Validation::default(),
-        )?;
+    ) -> AppResult<User> {
+        // 验证token是否有效
+        let token_record = Token::find_by_token(pool, token)
+            .await?
+            .ok_or_else(|| AppError::Auth("Invalid token".to_string()))?;
 
-        let user = sqlx::query_as!(
-            User,
-            "SELECT * FROM users WHERE id = ?",
-            claims.claims.sub
-        )
-        .fetch_optional(pool)
-        .await?
-        .ok_or_else(|| AppError::Auth("User not found".into()))?;
+        // 获取用户信息
+        let user = User::find_by_id(pool, token_record.user_id)
+            .await?
+            .ok_or_else(|| AppError::Auth("User not found".to_string()))?;
 
         Ok(user)
     }

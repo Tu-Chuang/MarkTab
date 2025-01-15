@@ -1,76 +1,58 @@
-use actix_web::{HttpResponse, ResponseError};
-use serde_json::json;
+use actix_web::{http::StatusCode, HttpResponse, ResponseError};
+use serde::Serialize;
 use thiserror::Error;
+
+pub type AppResult<T> = Result<T, AppError>;
 
 #[derive(Error, Debug)]
 pub enum AppError {
     #[error("Authentication error: {0}")]
     Auth(String),
 
-    #[error("Authorization error: {0}")]
-    Forbidden(String),
+    #[error("Database error: {0}")]
+    Database(#[from] sqlx::Error),
 
     #[error("Validation error: {0}")]
     Validation(String),
 
-    #[error("Resource not found: {0}")]
+    #[error("Not found: {0}")]
     NotFound(String),
-
-    #[error("Database error: {0}")]
-    Database(#[from] sqlx::Error),
-
-    #[error("IO error: {0}")]
-    Io(#[from] std::io::Error),
-
-    #[error("JWT error: {0}")]
-    Jwt(#[from] jsonwebtoken::errors::Error),
-
-    #[error("Bcrypt error: {0}")]
-    Bcrypt(#[from] bcrypt::BcryptError),
-
-    #[error("Request error: {0}")]
-    Request(#[from] reqwest::Error),
 
     #[error("Internal server error: {0}")]
     Internal(String),
+}
 
-    #[error("Invalid credentials")]
-    InvalidCredentials,
-
-    #[error("User not found")]
-    UserNotFound,
-
-    #[error("Plugin not found")]
-    PluginNotFound,
-
-    #[error("Plugin already exists")]
-    PluginAlreadyExists,
-
-    #[error("Plugin operation failed: {0}")]
-    PluginError(String),
-
-    #[error("Internal server error")]
-    InternalServerError,
+#[derive(Serialize)]
+struct ErrorResponse {
+    code: i32,
+    msg: String,
+    error_code: i32,
 }
 
 impl ResponseError for AppError {
     fn error_response(&self) -> HttpResponse {
-        let (status, error_code) = match self {
-            AppError::Auth(_) => (401, 401),
-            AppError::Forbidden(_) => (403, 403),
-            AppError::Validation(_) => (400, 400),
-            AppError::NotFound(_) => (404, 404),
-            _ => (500, 500),
+        let (status, error_code, message) = match self {
+            AppError::Auth(msg) => (StatusCode::UNAUTHORIZED, 401, msg),
+            AppError::Database(err) => (StatusCode::INTERNAL_SERVER_ERROR, 500, &err.to_string()),
+            AppError::Validation(msg) => (StatusCode::BAD_REQUEST, 400, msg),
+            AppError::NotFound(msg) => (StatusCode::NOT_FOUND, 404, msg),
+            AppError::Internal(msg) => (StatusCode::INTERNAL_SERVER_ERROR, 500, msg),
         };
 
-        HttpResponse::build(status.into())
-            .json(json!({
-                "code": 0,
-                "msg": self.to_string(),
-                "error_code": error_code,
-                "data": null::<()>
-            }))
+        HttpResponse::build(status).json(ErrorResponse {
+            code: 0,
+            msg: message.to_string(),
+            error_code,
+        })
     }
-}
 
-pub type AppResult<T> = Result<T, AppError>; 
+    fn status_code(&self) -> StatusCode {
+        match *self {
+            AppError::Auth(_) => StatusCode::UNAUTHORIZED,
+            AppError::Database(_) => StatusCode::INTERNAL_SERVER_ERROR,
+            AppError::Validation(_) => StatusCode::BAD_REQUEST,
+            AppError::NotFound(_) => StatusCode::NOT_FOUND,
+            AppError::Internal(_) => StatusCode::INTERNAL_SERVER_ERROR,
+        }
+    }
+} 

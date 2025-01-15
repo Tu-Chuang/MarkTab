@@ -4,11 +4,15 @@ use actix_web::{
 };
 use futures::future::LocalBoxFuture;
 use std::future::{ready, Ready};
-use crate::{services::auth::AuthService, error::AppError};
+use crate::{
+    error::AppError,
+    services::auth::AuthService,
+    models::user::User,
+};
 
-pub struct Auth;
+pub struct AuthMiddleware;
 
-impl<S, B> Transform<S, ServiceRequest> for Auth
+impl<S, B> Transform<S, ServiceRequest> for AuthMiddleware
 where
     S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error>,
     S::Future: 'static,
@@ -17,19 +21,19 @@ where
     type Response = ServiceResponse<B>;
     type Error = Error;
     type InitError = ();
-    type Transform = AuthMiddleware<S>;
+    type Transform = AuthMiddlewareService<S>;
     type Future = Ready<Result<Self::Transform, Self::InitError>>;
 
     fn new_transform(&self, service: S) -> Self::Future {
-        ready(Ok(AuthMiddleware { service }))
+        ready(Ok(AuthMiddlewareService { service }))
     }
 }
 
-pub struct AuthMiddleware<S> {
+pub struct AuthMiddlewareService<S> {
     service: S,
 }
 
-impl<S, B> Service<ServiceRequest> for AuthMiddleware<S>
+impl<S, B> Service<ServiceRequest> for AuthMiddlewareService<S>
 where
     S: Service<ServiceRequest, Response = ServiceResponse<B>, Error = Error>,
     S::Future: 'static,
@@ -42,21 +46,30 @@ where
     forward_ready!(service);
 
     fn call(&self, req: ServiceRequest) -> Self::Future {
-        let pool = req.app_data::<web::Data<MySqlPool>>().unwrap().clone();
-        
-        Box::pin(async move {
-            if let Some(auth_header) = req.headers().get("Authorization") {
-                let token = auth_header.to_str()
-                    .map_err(|_| AppError::Auth("Invalid token format".into()))?
-                    .replace("Bearer ", "");
-                
-                let user = AuthService::verify_token(&pool, &token).await?;
-                req.extensions_mut().insert(user);
-                
-                Ok(self.service.call(req).await?)
-            } else {
-                Err(AppError::Auth("No token provided".into()).into())
-            }
-        })
+        let auth_header = req.headers()
+            .get("Authorization")
+            .and_then(|h| h.to_str().ok())
+            .and_then(|s| s.strip_prefix("Bearer "));
+
+        if let Some(token) = auth_header {
+            let pool = req.app_data::<actix_web::web::Data<sqlx::MySqlPool>>()
+                .expect("Database pool not found")
+                .clone();
+
+            let fut = self.service.call(req);
+            Box::pin(async move {
+                match AuthService::verify_token(&pool, token).await {
+                    Ok(user) => {
+                        req.extensions_mut().insert::<User>(user);
+                        fut.await
+                    }
+                    Err(_) => Err(AppError::Auth("Invalid token".to_string()).into()),
+                }
+            })
+        } else {
+            Box::pin(async move {
+                Err(AppError::Auth("Missing authorization header".to_string()).into())
+            })
+        }
     }
 } 

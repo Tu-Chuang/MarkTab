@@ -38,8 +38,8 @@ sudo apt install git -y
 1. 下载项目:
 bash
 克隆项目
-git clone https://github.com/yourusername/MARKTAB-backend.git
-cd MARKTAB-backend
+git clone https://github.com/Tu-Chuang/MarkTab.git
+cd MarkTab
 
 2. 配置环境:
 bash
@@ -183,4 +183,10 @@ docker-compose up -d
 ### API文档
 - Swagger UI: http://localhost:8080/swagger-ui/
 - OpenAPI JSON: http://localhost:8080/api-docs/openapi.json
+
+### 八、获取帮助
+
+如果遇到问题:
+- 1. 查看项目 [Wiki](https://github.com/Tu-Chuang/MarkTab/wiki)
+- 2. 提交 [Issue](https://github.com/Tu-Chuang/MarkTab/issues)
 

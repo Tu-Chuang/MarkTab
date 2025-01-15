@@ -1,9 +1,17 @@
 use serde::{Deserialize, Serialize};
-use sqlx::FromRow;
+use sqlx::MySqlPool;
 use chrono::{DateTime, Utc};
+use crate::error::AppResult;
 
-#[derive(Debug, Serialize, Deserialize, FromRow)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Token {
+    pub access_token: String,
+    pub token_type: String,
+    pub expires_in: i64,
+}
+
+#[derive(Debug, sqlx::FromRow)]
+pub struct TokenRecord {
     pub id: i32,
     pub user_id: i32,
     pub token: String,
@@ -13,16 +21,16 @@ pub struct Token {
     pub created_at: DateTime<Utc>,
 }
 
-impl Token {
+impl TokenRecord {
     pub async fn create(
-        pool: &sqlx::MySqlPool,
+        pool: &MySqlPool,
         user_id: i32,
         token: &str,
         user_agent: &str,
         ip: &str,
         expired_at: DateTime<Utc>,
-    ) -> Result<Self, sqlx::Error> {
-        let token = sqlx::query_as!(
+    ) -> AppResult<Self> {
+        let record = sqlx::query_as!(
             Self,
             r#"
             INSERT INTO MARKTAB_tokens (user_id, token, user_agent, ip, expired_at)
@@ -37,35 +45,36 @@ impl Token {
         .execute(pool)
         .await?;
 
-        Ok(Self {
-            id: token.last_insert_id() as i32,
-            user_id,
-            token: token.to_string(),
-            user_agent: user_agent.to_string(),
-            ip: ip.to_string(),
-            expired_at,
-            created_at: Utc::now(),
-        })
+        Ok(Self::find_by_id(pool, record.last_insert_id() as i32).await?.unwrap())
     }
 
-    pub async fn find_valid(pool: &sqlx::MySqlPool, token: &str) -> Result<Option<Self>, sqlx::Error> {
-        sqlx::query_as!(
+    pub async fn find_by_id(pool: &MySqlPool, id: i32) -> AppResult<Option<Self>> {
+        let record = sqlx::query_as!(
             Self,
-            r#"
-            SELECT * FROM MARKTAB_tokens
-            WHERE token = ?
-            AND expired_at > NOW()
-            AND status = 1
-            "#,
+            "SELECT * FROM MARKTAB_tokens WHERE id = ?",
+            id
+        )
+        .fetch_optional(pool)
+        .await?;
+
+        Ok(record)
+    }
+
+    pub async fn find_by_token(pool: &MySqlPool, token: &str) -> AppResult<Option<Self>> {
+        let record = sqlx::query_as!(
+            Self,
+            "SELECT * FROM MARKTAB_tokens WHERE token = ? AND expired_at > NOW()",
             token
         )
         .fetch_optional(pool)
-        .await
+        .await?;
+
+        Ok(record)
     }
 
-    pub async fn invalidate(pool: &sqlx::MySqlPool, token: &str) -> Result<(), sqlx::Error> {
+    pub async fn invalidate(pool: &MySqlPool, token: &str) -> AppResult<()> {
         sqlx::query!(
-            "UPDATE MARKTAB_tokens SET status = 0 WHERE token = ?",
+            "UPDATE MARKTAB_tokens SET expired_at = NOW() WHERE token = ?",
             token
         )
         .execute(pool)

@@ -1,7 +1,10 @@
 [package]
-name = "MARKTAB-rust"
+name = "marktab"
 version = "0.1.0"
 edition = "2021"
+authors = ["MARKTAB Team"]
+repository = "https://github.com/Tu-Chuang/MarkTab"
+homepage = "https://github.com/Tu-Chuang/MarkTab"
 
 [dependencies]
 actix-web = "4.4"
@@ -33,6 +36,7 @@ criterion = "0.4"
 tokio = { version = "1.0", features = ["full"] }
 actix-web = { version = "4.0", features = ["openssl"] }
 
-[[bench]]
-name = "performance"
-harness = false 
+# 注释掉或删除这部分，因为现在还没有性能测试
+# [[bench]]
+# name = "performance"
+# harness = false 

@@ -1,25 +1,22 @@
+mod auth;
+mod file;
+mod plugin;
+mod user;
+
 use actix_web::web;
-
-mod base;
-mod admin;
-mod api;
-mod apps;
-
-pub mod auth;
-pub mod user;
-pub mod file;
-pub mod plugin;
 
 pub fn config(cfg: &mut web::ServiceConfig) {
     cfg.service(
-        web::scope("/api")
-            .configure(admin::config)
-            .configure(api::config)
-            .configure(apps::config)
+        web::scope("/api/v1")
+            .configure(auth::config)
+            .configure(file::config)
+            .configure(plugin::config)
+            .configure(user::config)
     );
+}
 
-    auth::config(cfg);
-    user::config(cfg);
-    file::config(cfg);
-    plugin::config(cfg);
-} 
+// Re-export commonly used types
+pub use auth::{LoginRequest, TokenResponse};
+pub use file::FileInfo;
+pub use plugin::PluginInfo;
+pub use user::UserInfo; 

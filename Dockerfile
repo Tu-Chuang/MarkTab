@@ -1,30 +1,30 @@
 # 构建阶段
-FROM rust:1.70 as builder
+FROM rust:1.75 as builder
 
-WORKDIR /usr/src/MARKTAB
+WORKDIR /usr/src/marktab
 COPY . .
 
 RUN cargo build --release
 
 # 运行阶段
-FROM debian:bullseye-slim
+FROM debian:bookworm-slim
 
 RUN apt-get update && apt-get install -y \
-    libssl-dev \
+    libssl3 \
     ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-WORKDIR /opt/MARKTAB
+WORKDIR /opt/marktab
 
-COPY --from=builder /usr/src/MARKTAB/target/release/MARKTAB /opt/MARKTAB/
-COPY --from=builder /usr/src/MARKTAB/migrations /opt/MARKTAB/migrations
-COPY --from=builder /usr/src/MARKTAB/.env.example /opt/MARKTAB/.env
+COPY --from=builder /usr/src/marktab/target/release/marktab ./
+COPY --from=builder /usr/src/marktab/migrations ./migrations
+COPY --from=builder /usr/src/marktab/scripts/start.sh ./
+COPY --from=builder /usr/src/marktab/scripts/wait-for-it.sh ./
 
-RUN useradd -r -s /bin/false MARKTAB \
-    && chown -R MARKTAB:MARKTAB /opt/MARKTAB
+RUN chmod +x start.sh wait-for-it.sh
 
-USER MARKTAB
+ENV RUST_LOG=info
 
 EXPOSE 8080
 
-CMD ["./MARKTAB"] 
+CMD ["./start.sh"] 

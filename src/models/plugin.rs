@@ -3,12 +3,12 @@ use sqlx::MySqlPool;
 use chrono::{DateTime, Utc};
 use crate::error::AppResult;
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, sqlx::FromRow)]
 pub struct PluginStatus {
     pub id: i32,
     pub name: String,
     pub enabled: bool,
-    pub settings: Option<serde_json::Value>,
+    pub settings: Option<String>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
@@ -57,13 +57,12 @@ impl PluginStatus {
     ) -> AppResult<()> {
         sqlx::query!(
             r#"
-            INSERT INTO MARKTAB_plugin_status (name, settings)
-            VALUES (?, ?)
-            ON DUPLICATE KEY UPDATE
-            settings = VALUES(settings)
+            UPDATE MARKTAB_plugin_status
+            SET settings = ?
+            WHERE name = ?
             "#,
-            name,
-            settings.to_string()
+            settings.to_string(),
+            name
         )
         .execute(pool)
         .await?;
@@ -82,24 +81,5 @@ impl PluginStatus {
         .await?;
 
         Ok(plugins.into_iter().map(|p| p.name).collect())
-    }
-
-    pub async fn get_settings(
-        pool: &MySqlPool,
-        name: &str,
-    ) -> AppResult<Option<serde_json::Value>> {
-        let settings = sqlx::query!(
-            r#"
-            SELECT settings FROM MARKTAB_plugin_status
-            WHERE name = ?
-            "#,
-            name
-        )
-        .fetch_optional(pool)
-        .await?;
-
-        Ok(settings
-            .and_then(|s| s.settings)
-            .and_then(|s| serde_json::from_str(&s).ok()))
     }
 } 

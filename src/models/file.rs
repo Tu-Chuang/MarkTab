@@ -1,16 +1,17 @@
 use serde::{Serialize, Deserialize};
 use sqlx::MySqlPool;
 use chrono::{DateTime, Utc};
-use crate::error::AppError;
+use crate::error::AppResult;
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, sqlx::FromRow)]
 pub struct File {
     pub id: i32,
-    pub user_id: Option<i32>,
-    pub path: String,
+    pub user_id: i32,
+    pub filename: String,
     pub mime_type: String,
     pub size: i64,
     pub hash: String,
+    pub path: String,
     pub created_at: DateTime<Utc>,
 }
 
@@ -23,7 +24,7 @@ impl File {
         size: i64,
         hash: &str,
         path: &str,
-    ) -> Result<Self, AppError> {
+    ) -> AppResult<Self> {
         let file = sqlx::query_as!(
             Self,
             r#"
@@ -40,22 +41,14 @@ impl File {
         .execute(pool)
         .await?;
 
-        Ok(Self {
-            id: file.last_insert_id() as i32,
-            user_id,
-            path: path.to_string(),
-            mime_type: mime_type.to_string(),
-            size,
-            hash: hash.to_string(),
-            created_at: Utc::now(),
-        })
+        Ok(Self::find_by_id(pool, file.last_insert_id() as i32).await?.unwrap())
     }
 
-    pub async fn find_by_hash(pool: &MySqlPool, hash: &str) -> Result<Option<Self>, AppError> {
+    pub async fn find_by_id(pool: &MySqlPool, id: i32) -> AppResult<Option<Self>> {
         let file = sqlx::query_as!(
             Self,
-            "SELECT * FROM MARKTAB_files WHERE hash = ?",
-            hash
+            "SELECT * FROM MARKTAB_files WHERE id = ?",
+            id
         )
         .fetch_optional(pool)
         .await?;
@@ -63,11 +56,11 @@ impl File {
         Ok(file)
     }
 
-    pub async fn find_by_id(pool: &MySqlPool, id: i32) -> Result<Option<Self>, AppError> {
+    pub async fn find_by_hash(pool: &MySqlPool, hash: &str) -> AppResult<Option<Self>> {
         let file = sqlx::query_as!(
             Self,
-            "SELECT * FROM MARKTAB_files WHERE id = ?",
-            id
+            "SELECT * FROM MARKTAB_files WHERE hash = ?",
+            hash
         )
         .fetch_optional(pool)
         .await?;
@@ -80,9 +73,9 @@ impl File {
         user_id: i32,
         page: u32,
         per_page: u32,
-    ) -> Result<(Vec<Self>, i64), AppError> {
+    ) -> AppResult<(Vec<Self>, i64)> {
         let offset = (page - 1) * per_page;
-        
+
         let files = sqlx::query_as!(
             Self,
             r#"
